@@ -1,18 +1,22 @@
 from pathlib import Path
 
-import joblib
 import pandas as pd
 import streamlit as st
+from pathlib import Path
+import pickle
+import streamlit as st
 
+MODEL_PATH = Path(__file__).resolve().parent / "phone_addiction_models.pkl"
 
-BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = BASE_DIR / "phone_addiction_models.joblib"
+with open(MODEL_PATH, "rb") as file:
+    bundle = pickle.load(file)
+
 
 
 @st.cache_resource
 def load_models():
     # Load only the model file you created and trust.
-    return joblib.load(MODEL_PATH)
+    return pickle.load(MODEL_PATH)
 
 
 bundle = load_models()
