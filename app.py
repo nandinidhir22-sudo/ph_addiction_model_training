@@ -1,23 +1,28 @@
 from pathlib import Path
+import pickle
 
 import pandas as pd
 import streamlit as st
-from pathlib import Path
-import pickle
-import streamlit as st
+
 
 MODEL_PATH = Path(__file__).resolve().parent / "phone_addiction_models.pkl"
-
-with open(MODEL_PATH, "rb") as file:
-    bundle = pickle.load(file)
-
 
 
 @st.cache_resource
 def load_models():
-    # Load only the model file you created and trust.
-    return pickle.load(MODEL_PATH)
+    # pickle.load needs an opened file, not a Path object.
+    with open(MODEL_PATH, "rb") as file:
+        return pickle.load(file)
 
+
+st.title("Teen Phone Addiction Estimates")
+
+if not MODEL_PATH.exists():
+    st.error(
+        f"Model file not found: {MODEL_PATH.name}. "
+        "Run addiction.py first to create it."
+    )
+    st.stop()
 
 bundle = load_models()
 classifier = bundle["classifier"]
@@ -25,8 +30,6 @@ regressor = bundle["regressor"]
 FEATURE_COLUMNS = bundle["feature_columns"]
 ADDICTION_CUTOFF = bundle["addiction_cutoff"]
 
-
-st.title("Teen Phone Addiction Estimates")
 st.write(
     "Enter the information below to get an addiction-status classification "
     "and an estimated Addiction_Level score."
@@ -53,12 +56,8 @@ with st.form("prediction_form"):
     sleep_hours = st.number_input(
         "Sleep (hours)", 0.0, 24.0, 6.5, step=0.1
     )
-    academic_performance = st.slider(
-        "Academic performance", 0, 100, 70
-    )
-    social_interactions = st.slider(
-        "Social interactions (0 to 10)", 0, 10, 5
-    )
+    academic_performance = st.slider("Academic performance", 0, 100, 70)
+    social_interactions = st.slider("Social interactions (0 to 10)", 0, 10, 5)
     exercise_hours = st.number_input(
         "Exercise (hours)", 0.0, 24.0, 1.0, step=0.1
     )
@@ -108,7 +107,6 @@ with st.form("prediction_form"):
 
 
 if submitted:
-    # Names here must match the dataset's feature column names exactly.
     input_values = {
         "Age": age,
         "Gender": gender,
@@ -133,26 +131,31 @@ if submitted:
         "Weekend_Usage_Hours": weekend_usage,
     }
 
-    # Keep columns in the exact order used when training.
-    input_df = pd.DataFrame([input_values]).reindex(
-        columns=FEATURE_COLUMNS
-    )
+    missing_columns = [
+        column for column in FEATURE_COLUMNS
+        if column not in input_values
+    ]
 
-    predicted_status = int(classifier.predict(input_df)[0])
-    predicted_score = float(regressor.predict(input_df)[0])
-
-    st.subheader("Predictions")
-
-    if predicted_status == 1:
-        st.success("Classification: Addicted")
+    if missing_columns:
+        st.error(f"App is missing these model inputs: {missing_columns}")
     else:
-        st.info("Classification: Not addicted")
+        # Match the feature names and order used when fitting the pipelines.
+        input_df = pd.DataFrame([
+            {column: input_values[column] for column in FEATURE_COLUMNS}
+        ])
 
-    st.write(
-        f"Estimated Addiction_Level: **{predicted_score:.2f}** "
-        "(the Linear Regression estimate can fall outside the original 1–10 range)"
-    )
+        predicted_status = int(classifier.predict(input_df)[0])
+        predicted_score = float(regressor.predict(input_df)[0])
 
-    st.caption(
-        "These are model estimates from the provided dataset, not a medical assessment."
-    )
+        st.subheader("Predictions")
+
+        if predicted_status == 1:
+            st.success("Classification: Addicted")
+        else:
+            st.info("Classification: Not addicted")
+
+        st.write(f"Estimated Addiction_Level: **{predicted_score:.2f}**")
+        st.caption(
+            "These are model estimates from the provided dataset, "
+            "not a medical assessment."
+        )

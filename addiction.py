@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import joblib
+import pickle
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -12,7 +12,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_PATH = BASE_DIR / "teen_phone_addiction_dataset.csv"
-MODEL_PATH = BASE_DIR / "phone_addiction_models.joblib"
+MODEL_PATH = BASE_DIR / "phone_addiction_models.pkl"
 ADDICTION_CUTOFF = 8
 
 
@@ -81,15 +81,19 @@ classifier.fit(X, y_classification)
 regressor.fit(X, y_regression)
 
 # Save the pipelines and the feature order expected by them.
-joblib.dump(
-    {
-        "classifier": classifier,
-        "regressor": regressor,
-        "feature_columns": X.columns.tolist(),
-        "addiction_cutoff": ADDICTION_CUTOFF,
-    },
-    MODEL_PATH,
-)
+with open(MODEL_PATH, "wb") as file:
+    pickle.dump(
+        {
+            "classifier": classifier,
+            "regressor": regressor,
+            "feature_columns": X.columns.tolist(),
+            "addiction_cutoff": ADDICTION_CUTOFF,
+        },
+        file,
+        protocol=pickle.HIGHEST_PROTOCOL,
+    )
+
+print(f"Saved trained pipelines to: {MODEL_PATH}")
 
 print(f"Saved trained pipelines to: {MODEL_PATH}")
 print(f"Input features: {X.columns.tolist()}")
